@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Lib
+      RoseTree
   other-modules:
       Paths_Connect4
   autogen-modules:
