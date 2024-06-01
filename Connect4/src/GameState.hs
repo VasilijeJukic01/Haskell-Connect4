@@ -2,24 +2,21 @@ module GameState (
 
 )where
 
+import Data.List (elemIndices)
+import Data.List (tails)
 
-
--- Board [Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P]]
-
-{-
-|   |   |   |   |  
-|   |
-|   |
-|   |
-
--}
+-- Board [Row [ P, C, P, C, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P]]
 
 newtype Board a = Board [Row a] 
 newtype Row a = Row [a] deriving Eq
 
 data Field = C|Z|P deriving (Show, Eq, Enum)
-data Move = Move {player :: Player, field :: (Int, Int)} deriving Show
+data Move a = Move {player :: Player, field :: (Int, Int)} deriving Show
 data Player = P1|P2 deriving (Show, Eq)
+
+playerSymbol :: Player -> Field 
+playerSymbol P1 = C
+playerSymbol P2 = Z
 
 
 instance Show a => Show (Row a) where
@@ -42,13 +39,60 @@ boardToList :: Board a -> [[a]]
 boardToList (Board rows) = map rowToList rows
 
 
+listToBoard :: [[a]] -> Board a
+listToBoard rows = Board (map Row rows)
+
+
 addIndiciesToList :: Board Field -> [(Int, [(Int, Field)])]
 addIndiciesToList connect4 = zip [0,1..] (map (zip[0,1..]) $ boardToList connect4)
 
 
-validMoves :: Player -> Board Field -> [Move Field]
-validMoves player connect4 - map (\table -> )
+emptyFieldsRow :: Row Field -> [Int]
+emptyFieldsRow (Row list) = elemIndices P list
 
+
+emptyFields :: Board Field -> [(Int, Int)]
+emptyFields (Board rows) = do
+    (rowIndex, row) <- zip [0..] rows -- rowIndex indeks reda, a row je sadržaj tog reda.
+    colIndex <- emptyFieldsRow row -- iterira kroz kolone u trenutnom redu i gleda gde je P
+    return (rowIndex, colIndex) -- kreira par koji je P za index
+
+
+validMoves :: Player -> Board Field -> [Move Field]
+validMoves player connect4 = map (\f -> Move {player = player, field = f}) (emptyFields connect4) -- dobija listu slobodnih polja i za tog igraca mu prikazuje na koja polja moze da odigra
+
+
+changeOnIndices :: (Int, Int) -> Field -> [(Int, [(Int, Field)])] -> [[Field]]
+changeOnIndices (x,y) field = map (\(x1, row) -> if x1==x then 
+    map (\(y2, odlField) -> if y2==y then field else odlField) row else map snd row)
+
+
+applyValidMoves :: Board Field -> Player -> (Int, Int) -> Board Field
+applyValidMoves table player coordinates = listToBoard (changeOnIndices coordinates  (playerSymbol player) (addIndiciesToList table))
+
+
+-- fieldsC :: Row Field -> [Int]
+-- fieldsC (Row list) = elemIndices C list 
+
+-- fieldsZ :: Row Field -> [Int]
+-- fieldsZ (Row list) = elemIndices Z list 
+
+
+-- hasExactlyFourConsecutive :: [Int] -> Bool
+-- hasExactlyFourConsecutive [] = False
+-- hasExactlyFourConsecutive xs = any isConsecutiveFour (map (take 4) (tails xs))
+
+-- isConsecutiveFour :: [Int] -> Bool
+-- isConsecutiveFour xs = all (\(a, b) -> b == a + 1) (zip xs (tail xs))
+
+-- chechHorizontal :: Board Field -> Player -> Bool
+-- chechHorizontal (Board rows) p 
+--     | p == P1 = any hasExactlyFourConsecutive [fieldsC row | row <- rows]
+--     | p == P2 = any hasExactlyFourConsecutive [fieldsZ row | row <- rows]
+
+        
+-- endGame :: Board Field -> Player -> Int
+-- endGame table player 
 
 
 
