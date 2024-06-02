@@ -4,8 +4,9 @@ module GameState (
 
 import Data.List (elemIndices)
 import Data.List (tails)
+import Data.List (transpose)
 
--- Board [Row [ P, C, C, C, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P]]
+-- Board [Row [ C, P, P, P, P], Row [ C, P, P, C, P], Row [ C, P, C, P, P], Row [ C, C, P, P, P], Row [ P, P, P, P, P]]
 
 newtype Board a = Board [Row a] 
 newtype Row a = Row [a] deriving Eq
@@ -89,14 +90,41 @@ checkDifferences' (x:y:xs) count
     | otherwise = checkDifferences' (y:xs) 0
 
 
-chechHorizontal :: Board Field -> Player -> Bool
+chechHorizontal :: Board Field -> Player -> Bool -- ali i za vertikal kad se odradi transponovanje
 chechHorizontal (Board rows) p 
     | p == P1 = any checkDifferences [fieldsC row | row <- rows]
     | p == P2 = any checkDifferences [fieldsZ row | row <- rows]
 
-        
--- endGame :: Board Field -> Player -> Int
--- endGame table player 
+
+transposeBoard :: Board a -> Board a
+transposeBoard (Board rows) = listToBoard (transpose (boardToList (Board rows)))
 
 
+{-
+all mora da mathc - uje sva polja da bi bila ista, pravi listu od 0 do 3 kako bi video 
+da li su 4 elementa na dijagonali
+
+indicies - pravi samo listu parova koordinata
+-}
+
+checkDiagonal :: Board Field -> Player -> Bool
+checkDiagonal board player = any (checkDiagonalDirection 1 1) indices || any (checkDiagonalDirection 1 (-1)) indices
+  where
+    symbol = playerSymbol player -- uzima C ili Z
+    boardList = boardToList board 
+    rowCount = length boardList -- duzina redova, granica mreze 
+    colCount = length (head boardList) -- duzina kolona
+    indices = [(r, c) | r <- [0..rowCount-1], c <- [0..colCount-1]]
+
+    checkDiagonalDirection :: Int -> Int -> (Int, Int) -> Bool
+    checkDiagonalDirection dirRow dirCol (row, col) = all (\i -> getField (row + i * dirRow) (col + i * dirCol) == Just symbol) [0..3] 
+    getField r c
+      | r >= 0 && r < rowCount && c >= 0 && c < colCount = Just ((boardList !! r) !! c) -- proverava granice mreze, i ukoliko je uspeo vrati sta se nalazi na tom polju P ili C
+      | otherwise = Nothing 
+
+
+endGame :: Board Field -> Player -> Bool
+endGame table player = (chechHorizontal table player) || 
+                       (chechHorizontal (transposeBoard table) player) || 
+                       (checkDiagonal table player) 
 
