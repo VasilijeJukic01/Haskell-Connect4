@@ -5,7 +5,8 @@ module RoseTree (
     leaves,
     elemsOnDepth,
     foldRose,
-    genereteRose
+    genereteRose,
+    Rose
 )where
 
 

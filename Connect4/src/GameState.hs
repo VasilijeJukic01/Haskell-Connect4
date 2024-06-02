@@ -1,5 +1,11 @@
 module GameState (
-
+    applyValidMoves,
+    emptyFields,
+    listToBoard,
+    endGame,
+    Board, 
+    Player (P1, P2),
+    Field (C, Z, P),
 )where
 
 import Data.List (elemIndices)
