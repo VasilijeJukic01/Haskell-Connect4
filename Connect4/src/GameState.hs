@@ -5,7 +5,7 @@ module GameState (
 import Data.List (elemIndices)
 import Data.List (tails)
 
--- Board [Row [ P, C, P, C, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P]]
+-- Board [Row [ P, C, C, C, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P], Row [ P, P, P, P, P]]
 
 newtype Board a = Board [Row a] 
 newtype Row a = Row [a] deriving Eq
@@ -71,24 +71,28 @@ applyValidMoves :: Board Field -> Player -> (Int, Int) -> Board Field
 applyValidMoves table player coordinates = listToBoard (changeOnIndices coordinates  (playerSymbol player) (addIndiciesToList table))
 
 
--- fieldsC :: Row Field -> [Int]
--- fieldsC (Row list) = elemIndices C list 
+fieldsC :: Row Field -> [Int]
+fieldsC (Row list) = elemIndices C list 
 
--- fieldsZ :: Row Field -> [Int]
--- fieldsZ (Row list) = elemIndices Z list 
+fieldsZ :: Row Field -> [Int]
+fieldsZ (Row list) = elemIndices Z list 
+
+checkDifferences :: [Int] -> Bool
+checkDifferences xs = checkDifferences' xs 0
+
+checkDifferences' :: [Int] -> Int -> Bool
+checkDifferences' _ 3 = True
+checkDifferences' [] _ = False
+checkDifferences' [_] _ = False
+checkDifferences' (x:y:xs) count
+    | abs (x - y) == 1 = checkDifferences' (y:xs) (count + 1) 
+    | otherwise = checkDifferences' (y:xs) 0
 
 
--- hasExactlyFourConsecutive :: [Int] -> Bool
--- hasExactlyFourConsecutive [] = False
--- hasExactlyFourConsecutive xs = any isConsecutiveFour (map (take 4) (tails xs))
-
--- isConsecutiveFour :: [Int] -> Bool
--- isConsecutiveFour xs = all (\(a, b) -> b == a + 1) (zip xs (tail xs))
-
--- chechHorizontal :: Board Field -> Player -> Bool
--- chechHorizontal (Board rows) p 
---     | p == P1 = any hasExactlyFourConsecutive [fieldsC row | row <- rows]
---     | p == P2 = any hasExactlyFourConsecutive [fieldsZ row | row <- rows]
+chechHorizontal :: Board Field -> Player -> Bool
+chechHorizontal (Board rows) p 
+    | p == P1 = any checkDifferences [fieldsC row | row <- rows]
+    | p == P2 = any checkDifferences [fieldsZ row | row <- rows]
 
         
 -- endGame :: Board Field -> Player -> Int
