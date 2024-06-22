@@ -3,31 +3,30 @@ module GameState (
     emptyFields,
     listToBoard,
     endGame,
-    Board, 
+    Board,
     Player (P1, P2),
     Field (C, Z, P),
 )where
 
-import Data.List (elemIndices)
-import Data.List (tails)
-import Data.List (transpose)
+import Data.List ( elemIndices, tails, transpose )
 
 -- Board [Row [ C, P, P, P, P], Row [ C, P, P, C, P], Row [ C, P, C, P, P], Row [ C, C, P, P, P], Row [ P, P, P, P, P]]
 
-newtype Board a = Board [Row a] 
+newtype Board a = Board [Row a]
 newtype Row a = Row [a] deriving Eq
 
 data Field = C|Z|P deriving (Show, Eq, Enum)
 data Move a = Move {player :: Player, field :: (Int, Int)} deriving Show
 data Player = P1|P2 deriving (Show, Eq)
 
-playerSymbol :: Player -> Field 
+
+playerSymbol :: Player -> Field
 playerSymbol P1 = C
 playerSymbol P2 = Z
 
 
 instance Show a => Show (Row a) where
-    show (Row a) = (foldl (\acc x -> acc ++ show x ++ "|") "|" a) ++ "\n"
+    show (Row a) = foldl (\acc x -> acc ++ show x ++ "|") "|" a ++ "\n"
 
 
 instance Show a => Show (Board a) where
@@ -51,7 +50,7 @@ listToBoard rows = Board (map Row rows)
 
 
 addIndiciesToList :: Board Field -> [(Int, [(Int, Field)])]
-addIndiciesToList connect4 = zip [0,1..] (map (zip[0,1..]) $ boardToList connect4)
+addIndiciesToList connect4 = zip [0,1..] (map (zip [0,1..]) $ boardToList connect4)
 
 
 emptyFieldsRow :: Row Field -> [Int]
@@ -70,7 +69,7 @@ validMoves player connect4 = map (\f -> Move {player = player, field = f}) (empt
 
 
 changeOnIndices :: (Int, Int) -> Field -> [(Int, [(Int, Field)])] -> [[Field]]
-changeOnIndices (x,y) field = map (\(x1, row) -> if x1==x then 
+changeOnIndices (x,y) field = map (\(x1, row) -> if x1==x then
     map (\(y2, odlField) -> if y2==y then field else odlField) row else map snd row)
 
 
@@ -79,10 +78,10 @@ applyValidMoves table player coordinates = listToBoard (changeOnIndices coordina
 
 
 fieldsC :: Row Field -> [Int]
-fieldsC (Row list) = elemIndices C list 
+fieldsC (Row list) = elemIndices C list
 
 fieldsZ :: Row Field -> [Int]
-fieldsZ (Row list) = elemIndices Z list 
+fieldsZ (Row list) = elemIndices Z list
 
 checkDifferences :: [Int] -> Bool
 checkDifferences xs = checkDifferences' xs 0
@@ -92,12 +91,12 @@ checkDifferences' _ 3 = True
 checkDifferences' [] _ = False
 checkDifferences' [_] _ = False
 checkDifferences' (x:y:xs) count
-    | abs (x - y) == 1 = checkDifferences' (y:xs) (count + 1) 
+    | abs (x - y) == 1 = checkDifferences' (y:xs) (count + 1)
     | otherwise = checkDifferences' (y:xs) 0
 
 
 chechHorizontal :: Board Field -> Player -> Bool -- ali i za vertikal kad se odradi transponovanje
-chechHorizontal (Board rows) p 
+chechHorizontal (Board rows) p
     | p == P1 = any checkDifferences [fieldsC row | row <- rows]
     | p == P2 = any checkDifferences [fieldsZ row | row <- rows]
 
@@ -117,20 +116,69 @@ checkDiagonal :: Board Field -> Player -> Bool
 checkDiagonal board player = any (checkDiagonalDirection 1 1) indices || any (checkDiagonalDirection 1 (-1)) indices
   where
     symbol = playerSymbol player -- uzima C ili Z
-    boardList = boardToList board 
+    boardList = boardToList board
     rowCount = length boardList -- duzina redova, granica mreze 
     colCount = length (head boardList) -- duzina kolona
     indices = [(r, c) | r <- [0..rowCount-1], c <- [0..colCount-1]]
 
     checkDiagonalDirection :: Int -> Int -> (Int, Int) -> Bool
-    checkDiagonalDirection dirRow dirCol (row, col) = all (\i -> getField (row + i * dirRow) (col + i * dirCol) == Just symbol) [0..3] 
+    checkDiagonalDirection dirRow dirCol (row, col) = all (\i -> getField (row + i * dirRow) (col + i * dirCol) == Just symbol) [0..3]
     getField r c
-      | r >= 0 && r < rowCount && c >= 0 && c < colCount = Just ((boardList !! r) !! c) -- proverava granice mreze, i ukoliko je uspeo vrati sta se nalazi na tom polju P ili C
-      | otherwise = Nothing 
+      | r >= 0 && r < rowCount && c >= 0 && c < colCount = Just (boardList !! r !! c) -- proverava granice mreze, i ukoliko je uspeo vrati sta se nalazi na tom polju P ili C
+      | otherwise = Nothing
 
 
 endGame :: Board Field -> Player -> Bool
-endGame table player = (chechHorizontal table player) || 
-                       (chechHorizontal (transposeBoard table) player) || 
-                       (checkDiagonal table player) 
+endGame table player = chechHorizontal table player ||
+                       chechHorizontal (transposeBoard table) player ||
+                       checkDiagonal table player
+
+
+
+----------------------------------------------------------------------------------
+-- Treca tacka
+
+-- Tip podataka za stanje igre
+data BoardState a = BoardState {
+    board :: Board a,
+    playerToMove :: Player
+} deriving Show
+
+-- Tip podataka za validno i nevalidno stanje
+data GameState a = Valid a | Invalid String deriving Show
+
+-- Definišemo operacije za manipulaciju stanjem igre
+newtype GameStateOp s a = GameStateOp {
+    run :: BoardState s -> (GameState a, BoardState s)
+}
+
+-- Funktor instanca za GameState
+instance Functor GameState where
+    fmap f (Valid a) = Valid (f a)
+    fmap f (Invalid msg) = Invalid msg
+
+instance Functor (GameStateOp currState) where
+    fmap f (GameStateOp g) = GameStateOp $ \s ->
+        let (result, newState) = g s
+        in (fmap f result, newState)
+
+instance Applicative (GameStateOp currState) where
+    pure x = GameStateOp $ \s -> (Valid x, s)
+
+    (GameStateOp rf) <*> (GameStateOp ra) = GameStateOp $ \s ->
+        let (resultF, newState) = rf s
+            (resultA, newState1) = ra newState
+        in case (resultF, resultA) of
+            (Valid f, Valid a) -> (Valid (f a), newState1)
+            (Invalid msg, _) -> (Invalid msg, newState1)
+            (_, Invalid msg) -> (Invalid msg, newState1)
+
+instance Monad (GameStateOp currState) where
+    return = pure
+
+    (GameStateOp ra) >>= f = GameStateOp $ \s ->
+        let (resultA, newState) = ra s
+        in case resultA of
+            Valid a -> let (GameStateOp rb) = f a in rb newState
+            Invalid msg -> (Invalid msg, newState)
 
