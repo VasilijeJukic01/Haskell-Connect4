@@ -10,7 +10,7 @@ module GameState (
 
 import Data.List ( elemIndices, tails, transpose )
 
--- Board [Row [ C, P, P, P, P], Row [ C, P, P, C, P], Row [ C, P, C, P, P], Row [ C, C, P, P, P], Row [ P, P, P, P, P]]
+-- Board [Row [ Z, C, Z, P, P], Row [ C, P, Z, C, P], Row [ C, P, C, P, Z], Row [ C, P, Z, P, C], Row [ P, Z, C, Z, P]]
 
 newtype Board a = Board [Row a]
 newtype Row a = Row [a] deriving Eq
@@ -150,7 +150,7 @@ data GameState a = Valid a | Invalid String deriving Show
 -- Definišemo operacije za manipulaciju stanjem igre
 newtype GameStateOp s a = GameStateOp {
     run :: BoardState s -> (GameState a, BoardState s)
-}
+} 
 
 -- Funktor instanca za GameState
 instance Functor GameState where
@@ -181,4 +181,61 @@ instance Monad (GameStateOp currState) where
         in case resultA of
             Valid a -> let (GameStateOp rb) = f a in rb newState
             Invalid msg -> (Invalid msg, newState)
+
+
+applyMove :: (Int,Int) -> GameStateOp Field Bool
+applyMove (x, y) = GameStateOp $ \s ->
+    if not (isValidMove (board s) (playerToMove s) (x, y))
+    then (Invalid "Invalid move attempted", s)
+    else (Valid True, BoardState
+            { board = applyValidMoves (board s) (playerToMove s) (x, y)
+            , playerToMove = changePlayer (playerToMove s)
+            })
+
+
+isValidMove :: Board Field -> Player -> (Int, Int) -> Bool
+isValidMove (Board rows) player (x, y)
+    | x < 0 || x >= length rows = False  -- Provera da li je x van opsega
+    | y < 0 || y >= length (unRow (rows !! x)) = False  -- Provera da li je y van opsega
+    | getField (Board rows) (x, y) /= P = False  -- Provera da li je polje već popunjeno
+    | otherwise = True
+
+-- Pomoćna funkcija za dobijanje vrednosti polja na određenim koordinatama
+getField :: Board Field -> (Int, Int) -> Field
+getField (Board rows) (x, y) = unRow (rows !! x) !! y
+
+-- Funkcija za konverziju Row u listu Field
+unRow :: Row a -> [a]
+unRow (Row xs) = xs
+
+-- Funkcija za promenu igrača
+changePlayer :: Player -> Player
+changePlayer P1 = P2
+changePlayer P2 = P1
+
+-- Testiranje sekvence applyMoves
+applyMoves :: GameStateOp Field Bool
+applyMoves = do
+    applyMove (1, 1)
+    applyMove (1, 2)
+    applyMove (1, 3)
+    applyMove (0, 0)
+    applyMove (0, 0)
+
+runGameStateOp :: GameStateOp s a -> BoardState s -> (GameState a, BoardState s)
+runGameStateOp (GameStateOp op) = op
+
+main :: IO ()
+main = do
+  let initialBoardState =
+        BoardState
+          { board = listToBoard (replicate 6 (rowToList (listToRow (replicate 7 P))))
+          , playerToMove = P1
+          }
+      (result, finalBoardState) = run (applyMoves) initialBoardState
+  putStrLn "Final board state after applying moves:"
+  print (board finalBoardState)
+  putStrLn "Result:"
+  print result
+
 
