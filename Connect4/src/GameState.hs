@@ -182,23 +182,22 @@ instance Monad (GameStateOp currState) where
             Valid a -> let (GameStateOp rb) = f a in rb newState
             Invalid msg -> (Invalid msg, newState)
 
-
-applyMove :: (Int,Int) -> GameStateOp Field Bool
+applyMove :: (Int, Int) -> GameStateOp Field Bool
 applyMove (x, y) = GameStateOp $ \s ->
-    if not (isValidMove (board s) (playerToMove s) (x, y))
-    then (Invalid "Invalid move attempted", s)
-    else (Valid True, BoardState
-            { board = applyValidMoves (board s) (playerToMove s) (x, y)
-            , playerToMove = changePlayer (playerToMove s)
-            })
+    case isValidMove (board s) (playerToMove s) (x, y) of
+        Left errMsg -> (Invalid errMsg, s)
+        Right _ -> (Valid True, BoardState
+                        { board = applyValidMoves (board s) (playerToMove s) (x, y)
+                        , playerToMove = changePlayer (playerToMove s)
+                        })
 
-
-isValidMove :: Board Field -> Player -> (Int, Int) -> Bool
+isValidMove :: Board Field -> Player -> (Int, Int) -> Either String Bool
 isValidMove (Board rows) player (x, y)
-    | x < 0 || x >= length rows = False  -- Provera da li je x van opsega
-    | y < 0 || y >= length (unRow (rows !! x)) = False  -- Provera da li je y van opsega
-    | getField (Board rows) (x, y) /= P = False  -- Provera da li je polje već popunjeno
-    | otherwise = True
+    | x < 0 || x >= length rows = Left "Invalid move: x coordinate is out of bounds"
+    | y < 0 || y >= length (unRow (rows !! x)) = Left "Invalid move: y coordinate is out of bounds"
+    | getField (Board rows) (x, y) /= P = Left "Invalid move: field is already occupied"
+    | otherwise = Right True
+
 
 -- Pomoćna funkcija za dobijanje vrednosti polja na određenim koordinatama
 getField :: Board Field -> (Int, Int) -> Field
@@ -220,13 +219,13 @@ applyMoves = do
     applyMove (1, 2)
     applyMove (1, 3)
     applyMove (0, 0)
-    applyMove (0, 0)
+    applyMove (0, 10)
 
 runGameStateOp :: GameStateOp s a -> BoardState s -> (GameState a, BoardState s)
 runGameStateOp (GameStateOp op) = op
 
-main :: IO ()
-main = do
+testApplyMoves :: IO ()
+testApplyMoves = do
   let initialBoardState =
         BoardState
           { board = listToBoard (replicate 6 (rowToList (listToRow (replicate 7 P))))
@@ -238,4 +237,29 @@ main = do
   putStrLn "Result:"
   print result
 
+
+-- Funkcija koja uzima listu poteza i vraća GameStateOp koji primenjuje te poteze
+applyMovesFromList :: [(Int, Int)] -> GameStateOp Field Bool
+applyMovesFromList moves = foldr (\move acc -> acc >>= const (applyMove move)) (pure True) moves
+
+-- Testiranje funkcije applyMovesFromList
+testApplyMovesFromList :: IO ()
+testApplyMovesFromList = do
+  let initialBoardState =
+        BoardState
+          { board = listToBoard (replicate 6 (rowToList (listToRow (replicate 7 P))))
+          , playerToMove = P1
+          }
+      moves = [(1, 1), (1, 2), (1, 3), (0, 0), (0, 0)]
+      (result, finalBoardState) = run (applyMovesFromList moves) initialBoardState
+  putStrLn "Final board state after applying moves from list:"
+  print (board finalBoardState)
+  putStrLn "Result:"
+  print result
+
+
+main :: IO ()
+main = do
+--   testApplyMovesFromList
+  testApplyMoves
 
