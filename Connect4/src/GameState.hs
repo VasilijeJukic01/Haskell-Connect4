@@ -2,10 +2,16 @@ module GameState (
     applyValidMoves,
     emptyFields,
     listToBoard,
+    rowToList,
     endGame,
+    applyMovesFromList,
+    unRow,
     Board,
     Player (P1, P2),
     Field (C, Z, P),
+    Row (..),
+    BoardState (..),
+    GameStateOp (..)
 )where
 
 import Data.List ( elemIndices, tails, transpose )
