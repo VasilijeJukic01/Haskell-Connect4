@@ -12,11 +12,11 @@ module GameState (
     Row (..),
     BoardState (..),
     GameStateOp (..)
-)where
+) where
 
 import Data.List ( elemIndices, tails, transpose )
 
--- Board [Row [ Z, C, Z, P, P], Row [ C, P, Z, C, P], Row [ C, P, C, P, Z], Row [ C, P, Z, P, C], Row [ P, Z, C, Z, P]]
+-- b = Board [Row [ Z, C, Z, P, P], Row [ C, P, Z, C, P], Row [ C, P, C, P, Z], Row [ C, P, Z, P, C], Row [ P, Z, C, Z, P]]
 
 newtype Board a = Board [Row a]
 newtype Row a = Row [a] deriving Eq
@@ -47,6 +47,10 @@ listToRow :: [a] -> Row a
 listToRow = Row
 
 
+{-
+boardToList b
+[[Z,C,Z,P,P],[C,P,Z,C,P],[C,P,C,P,Z],[C,P,Z,P,C],[P,Z,C,Z,P]]
+-}
 boardToList :: Board a -> [[a]]
 boardToList (Board rows) = map rowToList rows
 
@@ -54,38 +58,42 @@ boardToList (Board rows) = map rowToList rows
 listToBoard :: [[a]] -> Board a
 listToBoard rows = Board (map Row rows)
 
-
+-- addIndiciesToList b
 addIndiciesToList :: Board Field -> [(Int, [(Int, Field)])]
 addIndiciesToList connect4 = zip [0,1..] (map (zip [0,1..]) $ boardToList connect4)
 
-
+-- emptyFieldsRow (Row [Z,C,Z,P,P])
 emptyFieldsRow :: Row Field -> [Int]
 emptyFieldsRow (Row list) = elemIndices P list
 
 
+-- emptyFields b
 emptyFields :: Board Field -> [(Int, Int)]
 emptyFields (Board rows) = do
     (rowIndex, row) <- zip [0..] rows -- rowIndex indeks reda, a row je sadržaj tog reda.
     colIndex <- emptyFieldsRow row -- iterira kroz kolone u trenutnom redu i gleda gde je P
     return (rowIndex, colIndex) -- kreira par koji je P za index
 
-
+-- validMoves P1 b
 validMoves :: Player -> Board Field -> [Move Field]
 validMoves player connect4 = map (\f -> Move {player = player, field = f}) (emptyFields connect4) -- dobija listu slobodnih polja i za tog igraca mu prikazuje na koja polja moze da odigra
 
-
+-- changeOnIndices (1,1) C (addIndiciesToList b)
 changeOnIndices :: (Int, Int) -> Field -> [(Int, [(Int, Field)])] -> [[Field]]
 changeOnIndices (x,y) field = map (\(x1, row) -> if x1==x then
     map (\(y2, odlField) -> if y2==y then field else odlField) row else map snd row)
 
 
+-- applyValidMoves b P2 (1,1)
 applyValidMoves :: Board Field -> Player -> (Int, Int) -> Board Field
 applyValidMoves table player coordinates = listToBoard (changeOnIndices coordinates  (playerSymbol player) (addIndiciesToList table))
 
 
+-- fieldsC (Row [Z,C,Z,P,P]) 
 fieldsC :: Row Field -> [Int]
 fieldsC (Row list) = elemIndices C list
 
+-- fieldsZ (Row [Z,C,Z,P,P])
 fieldsZ :: Row Field -> [Int]
 fieldsZ (Row list) = elemIndices Z list
 
@@ -97,23 +105,24 @@ checkDifferences' _ 3 = True
 checkDifferences' [] _ = False
 checkDifferences' [_] _ = False
 checkDifferences' (x:y:xs) count
-    | abs (x - y) == 1 = checkDifferences' (y:xs) (count + 1)
+    | abs (x - y) == 1 = checkDifferences' (y:xs) (count + 1) -- gledamo razliku izmedju dva susedna elementa
     | otherwise = checkDifferences' (y:xs) 0
 
 
+-- chechHorizontal b P1
 chechHorizontal :: Board Field -> Player -> Bool -- ali i za vertikal kad se odradi transponovanje
 chechHorizontal (Board rows) p
-    | p == P1 = any checkDifferences [fieldsC row | row <- rows]
+    | p == P1 = any checkDifferences [fieldsC row | row <- rows] -- any prolazi kroz listu i vraca True ako je bilo koji element True
     | p == P2 = any checkDifferences [fieldsZ row | row <- rows]
 
 
+-- transposeBoard b
 transposeBoard :: Board a -> Board a
 transposeBoard (Board rows) = listToBoard (transpose (boardToList (Board rows)))
 
 
 {-
-all mora da mathc - uje sva polja da bi bila ista, pravi listu od 0 do 3 kako bi video 
-da li su 4 elementa na dijagonali
+all mora da mathc-uje sva polja da bi bila ista, pravi listu od 0 do 3 kako bi video da li su 4 elementa na dijagonali
 
 indicies - pravi samo listu parova koordinata
 -}
@@ -205,7 +214,7 @@ isValidMove (Board rows) player (x, y)
     | otherwise = Right True
 
 
--- Pomoćna funkcija za dobijanje vrednosti polja na određenim koordinatama
+-- Dobijanje vrednosti polja na odredjenim koordinatama
 getField :: Board Field -> (Int, Int) -> Field
 getField (Board rows) (x, y) = unRow (rows !! x) !! y
 
@@ -213,7 +222,7 @@ getField (Board rows) (x, y) = unRow (rows !! x) !! y
 unRow :: Row a -> [a]
 unRow (Row xs) = xs
 
--- Funkcija za promenu igrača
+-- Funkcija za promenu igraca
 changePlayer :: Player -> Player
 changePlayer P1 = P2
 changePlayer P2 = P1
@@ -232,19 +241,19 @@ runGameStateOp (GameStateOp op) = op
 
 testApplyMoves :: IO ()
 testApplyMoves = do
-  let initialBoardState =
-        BoardState
+  let initialBoardState = BoardState
           { board = listToBoard (replicate 6 (rowToList (listToRow (replicate 7 P))))
           , playerToMove = P1
           }
-      (result, finalBoardState) = run (applyMoves) initialBoardState
+      (result, finalBoardState) = run applyMoves initialBoardState
   putStrLn "Final board state after applying moves:"
   print (board finalBoardState)
   putStrLn "Result:"
   print result
 
 
--- Funkcija koja uzima listu poteza i vraća GameStateOp koji primenjuje te poteze
+-- Uzima listu poteza i vraca GameStateOp koji primenjuje te poteze
+-- const - zadrzavanje vrednosti iz prethodnog koraka
 applyMovesFromList :: [(Int, Int)] -> GameStateOp Field Bool
 applyMovesFromList moves = foldr (\move acc -> acc >>= const (applyMove move)) (pure True) moves
 
@@ -266,6 +275,5 @@ testApplyMovesFromList = do
 
 main :: IO ()
 main = do
---   testApplyMovesFromList
-  testApplyMoves
-
+    testApplyMovesFromList
+    testApplyMoves

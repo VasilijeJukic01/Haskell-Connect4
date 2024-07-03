@@ -67,7 +67,7 @@ leavesCount (Node 1) = leavesCount (Node 2) + leavesCount (Node 3)
 -}
 leavesCount :: Rose a -> Int
 leavesCount (Node _ []) = 1
-leavesCount (Node _ children) = sum (map leavesCount children) -- 3 [2 1 10] 2 [1 3] ----------> [2, 1, 1] ----- [1,1]
+leavesCount (Node _ children) = sum (map leavesCount children)
 
 
 {-
